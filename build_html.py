@@ -350,14 +350,36 @@ template = r"""<!doctype html>
     .question { font-size: 16px; margin-bottom: 16px; }
     .choices { padding-left: 20px; }
     .choice { padding: 10px 8px; margin: 6px -8px; font-size: 15px; }
-    .controls { gap: 6px; margin-top: 12px; }
+    main {
+      display: grid;
+      grid-template-areas:
+        "pos pos"
+        "known review"
+        "reveal reveal"
+        "card card"
+        "prev next"
+        "reset reset"
+        "hint hint";
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin: 12px auto;
+    }
+    .position { grid-area: pos; margin-bottom: 0; }
+    #card-area { grid-area: card; }
+    .hint { grid-area: hint; }
+    .controls { display: contents; }
+    #known-btn { grid-area: known; }
+    #review-btn { grid-area: review; }
+    #reveal-btn { grid-area: reveal; }
+    #prev-btn { grid-area: prev; }
+    #next-btn { grid-area: next; }
+    #reset-card-btn { grid-area: reset; }
     .controls .btn {
-      flex: 1 1 calc(50% - 3px);
       min-height: 44px;
       padding: 10px 8px;
       font-size: 14px;
+      margin: 0;
     }
-    .controls .btn.primary { flex-basis: 100%; }
     .hint { display: none; }
     .lock-box { padding: 24px 20px; }
     .lock-box input[type="password"] { font-size: 16px; padding: 12px; }
