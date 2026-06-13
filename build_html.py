@@ -171,6 +171,35 @@ template = r"""<!doctype html>
     display: flex;
     gap: 8px;
   }
+  .jump-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .jump-row select {
+    flex: 1 1 200px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .qjump {
+    display: flex;
+    gap: 6px;
+  }
+  .qjump input {
+    width: 80px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
   .btn {
     cursor: pointer;
     border: 1px solid var(--border);
@@ -228,12 +257,29 @@ template = r"""<!doctype html>
     margin: 4px -10px;
     border-radius: 6px;
     border: 1px solid transparent;
+    cursor: pointer;
+    position: relative;
   }
+  .choice:hover { background: var(--bg); }
+  .choice.locked { cursor: default; }
+  .choice.locked:hover { background: inherit; }
   .choice.answer {
     background: var(--answer-bg);
     border-color: var(--answer-border);
     font-weight: 600;
   }
+  .choice.picked-wrong {
+    background: var(--review-bg);
+    border-color: var(--review);
+    font-weight: 600;
+  }
+  .choice .mark {
+    float: right;
+    font-weight: 700;
+    margin-left: 8px;
+  }
+  .choice.answer .mark { color: var(--known); }
+  .choice.picked-wrong .mark { color: var(--review); }
   .state-tags {
     display: flex;
     gap: 6px;
@@ -345,6 +391,13 @@ template = r"""<!doctype html>
     <button class="filter-btn" data-filter="review">Review <span class="count" id="review-count">0</span></button>
     <button class="filter-btn" data-filter="seen">Seen <span class="count" id="seen-count">0</span></button>
   </div>
+  <div class="jump-row">
+    <select id="chapter-select"><option value="">Jump to chapter…</option></select>
+    <form id="qjump-form" class="qjump">
+      <input type="number" id="qjump-input" placeholder="Q#" min="1" inputmode="numeric">
+      <button type="submit" class="btn">Go</button>
+    </form>
+  </div>
 </header>
 <main>
   <div class="position" id="position"></div>
@@ -375,6 +428,7 @@ const state = {
   deck: [],
   pos: 0,
   revealed: false,
+  picked: null,
   sets: { known: new Set(), review: new Set(), seen: new Set() },
 };
 
@@ -434,15 +488,18 @@ function load() {
     state.sets.review = new Set(s.review || []);
     state.sets.seen = new Set(s.seen || []);
     if (s.filter) state.filter = s.filter;
+    if (typeof s.currentNum === 'number') state._restoreNum = s.currentNum;
   } catch (e) {}
 }
 
 function save() {
+  const card = state.deck.length > 0 ? CARDS[state.deck[state.pos]] : null;
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     known: [...state.sets.known],
     review: [...state.sets.review],
     seen: [...state.sets.seen],
     filter: state.filter,
+    currentNum: card ? card.num : null,
   }));
 }
 
@@ -460,6 +517,7 @@ function rebuildDeck() {
   state.deck = indices;
   state.pos = 0;
   state.revealed = false;
+  state.picked = null;
 }
 
 function shuffle() {
@@ -471,6 +529,8 @@ function shuffle() {
   state.deck = a;
   state.pos = 0;
   state.revealed = false;
+  state.picked = null;
+  save();
   render();
 }
 
@@ -508,9 +568,20 @@ function render() {
   const card = CARDS[state.deck[state.pos]];
   positionEl.textContent = `${state.pos + 1} of ${state.deck.length}`;
 
-  const choicesHtml = card.choices.map(c => {
-    const cls = state.revealed && c.is_answer ? 'choice answer' : 'choice';
-    return `<li class="${cls}">${escapeHtml(c.text)}</li>`;
+  const choicesHtml = card.choices.map((c, i) => {
+    const classes = ['choice'];
+    if (state.revealed) classes.push('locked');
+    let mark = '';
+    if (state.revealed) {
+      if (c.is_answer) {
+        classes.push('answer');
+        if (state.picked === i) mark = '<span class="mark">&check;</span>';
+      } else if (state.picked === i) {
+        classes.push('picked-wrong');
+        mark = '<span class="mark">&times;</span>';
+      }
+    }
+    return `<li class="${classes.join(' ')}" data-idx="${i}">${escapeHtml(c.text)}${mark}</li>`;
   }).join('');
 
   const tagsHtml = [
@@ -528,7 +599,23 @@ function render() {
     </div>
   `;
 
+  if (!state.revealed) {
+    cardArea.querySelectorAll('.choice').forEach(el => {
+      el.addEventListener('click', () => pickChoice(parseInt(el.dataset.idx, 10)));
+    });
+  }
+
   document.getElementById('reveal-btn').disabled = state.revealed;
+}
+
+function pickChoice(idx) {
+  if (state.revealed || state.deck.length === 0) return;
+  state.picked = idx;
+  state.revealed = true;
+  const card = CARDS[state.deck[state.pos]];
+  state.sets.seen.add(card.num);
+  save();
+  render();
 }
 
 function reveal() {
@@ -565,6 +652,8 @@ function next() {
   if (state.deck.length === 0) return;
   state.pos = (state.pos + 1) % state.deck.length;
   state.revealed = false;
+  state.picked = null;
+  save();
   render();
 }
 
@@ -572,6 +661,8 @@ function prev() {
   if (state.deck.length === 0) return;
   state.pos = (state.pos - 1 + state.deck.length) % state.deck.length;
   state.revealed = false;
+  state.picked = null;
+  save();
   render();
 }
 
@@ -594,7 +685,51 @@ function resetCard() {
   const idx = state.deck.findIndex(i => CARDS[i].num === num);
   state.pos = idx >= 0 ? idx : Math.min(state.pos, Math.max(0, state.deck.length - 1));
   state.revealed = false;
+  state.picked = null;
   render();
+}
+
+function jumpToCard(num) {
+  if (state.filter !== 'all') {
+    state.filter = 'all';
+    rebuildDeck();
+  }
+  const idx = state.deck.findIndex(i => CARDS[i].num === num);
+  if (idx < 0) return false;
+  state.pos = idx;
+  state.revealed = false;
+  state.picked = null;
+  save();
+  render();
+  return true;
+}
+
+function jumpToChapter(chapter) {
+  if (state.filter !== 'all') {
+    state.filter = 'all';
+    rebuildDeck();
+  }
+  const idx = state.deck.findIndex(i => CARDS[i].chapter === chapter);
+  if (idx < 0) return false;
+  state.pos = idx;
+  state.revealed = false;
+  state.picked = null;
+  save();
+  render();
+  return true;
+}
+
+function populateChapterDropdown() {
+  const sel = document.getElementById('chapter-select');
+  const seen = new Set();
+  for (const c of CARDS) {
+    if (seen.has(c.chapter)) continue;
+    seen.add(c.chapter);
+    const opt = document.createElement('option');
+    opt.value = c.chapter;
+    opt.textContent = c.chapter;
+    sel.appendChild(opt);
+  }
 }
 
 function clearStates() {
@@ -619,6 +754,24 @@ function initApp() {
   document.querySelectorAll('.filter-btn').forEach(b => {
     b.addEventListener('click', () => setFilter(b.dataset.filter));
   });
+  populateChapterDropdown();
+  document.getElementById('chapter-select').addEventListener('change', (e) => {
+    if (e.target.value) {
+      jumpToChapter(e.target.value);
+      e.target.value = '';
+    }
+  });
+  document.getElementById('qjump-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('qjump-input');
+    const num = parseInt(input.value, 10);
+    if (!isNaN(num) && jumpToCard(num)) {
+      input.value = '';
+    } else {
+      input.style.borderColor = 'var(--review)';
+      setTimeout(() => { input.style.borderColor = ''; }, 800);
+    }
+  });
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     switch (e.key) {
@@ -632,6 +785,11 @@ function initApp() {
   });
   load();
   rebuildDeck();
+  if (state._restoreNum != null) {
+    const idx = state.deck.findIndex(i => CARDS[i].num === state._restoreNum);
+    if (idx >= 0) state.pos = idx;
+    delete state._restoreNum;
+  }
   render();
 }
 </script>
