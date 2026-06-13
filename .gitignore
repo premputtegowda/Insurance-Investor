@@ -1,0 +1,5 @@
+*.pdf
+probe_pdf.py
+cards.json
+.DS_Store
+__pycache__/
