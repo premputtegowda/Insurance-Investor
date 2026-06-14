@@ -59,10 +59,8 @@ template = r"""<!doctype html>
     color: var(--text);
     line-height: 1.5;
   }
-  header { display: none; }
-  main { display: none; }
-  body.unlocked header { display: block; }
-  body.unlocked main { display: block; }
+  body:not(.unlocked) header { display: none; }
+  body:not(.unlocked) main { display: none; }
   body.unlocked #lock { display: none; }
   #lock {
     min-height: 100vh;
