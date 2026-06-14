@@ -345,6 +345,11 @@ template = r"""<!doctype html>
     .filter-btn { flex: 1 1 calc(50% - 3px); padding: 10px 8px; font-size: 13px; }
     .actions { width: 100%; }
     .actions .btn { flex: 1; padding: 10px 12px; }
+    .jump-row { flex-direction: column; align-items: stretch; gap: 6px; }
+    .jump-row select { flex: 1; width: 100%; padding: 10px; font-size: 14px; max-width: 100%; }
+    .qjump { width: 100%; }
+    .qjump input { flex: 1; width: auto; padding: 10px; font-size: 16px; }
+    .qjump .btn { padding: 10px 18px; }
     main { margin: 12px auto; padding: 0 10px; }
     .card { padding: 16px; border-radius: 8px; }
     .question { font-size: 16px; margin-bottom: 16px; }
@@ -354,10 +359,10 @@ template = r"""<!doctype html>
       display: grid;
       grid-template-areas:
         "pos pos"
+        "prev next"
+        "card card"
         "known review"
         "reveal reveal"
-        "card card"
-        "prev next"
         "reset reset"
         "hint hint";
       grid-template-columns: 1fr 1fr;
